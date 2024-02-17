@@ -33,12 +33,7 @@ struct Configure: ParsableCommand {
     mutating func runXCBuild() {
         let whatToBuild: String
         var command = ""
-        if isProject {
-            whatToBuild = "-project \(project)"
-        } else {
-            let workspace = self.workspace ?? getWorkspace(project: project)
-            whatToBuild = "-workspace \(workspace)"
-        }
+
         if let configuration {
             command = "-config \(configuration)"
         }
@@ -47,7 +42,7 @@ struct Configure: ParsableCommand {
         }
         let cmd =
             """
-            xcodebuild \(whatToBuild) -sdk ${command:ios-debug.targetSdk} -destination 'generic/platform=iOS Simulator' -scheme 'Kyivstar Debug'",
+            xcodebuild -project *.xcodeproj -sdk ${command:ios-debug.targetSdk} -destination 'generic/platform=iOS Simulator' \(command) build",
             """
     }
 
@@ -85,6 +80,7 @@ struct Configure: ParsableCommand {
         try run()
     }
 
+    // TODO: -  ProjectSettings.swift
     private func getAppName(appDir: String) throws -> String? {
         let fileManager = FileManager.default
         let files = try fileManager.contentsOfDirectory(atPath: appDir)
@@ -96,6 +92,8 @@ struct Configure: ParsableCommand {
         }
         return "\(app)"
     }
+
+    // TODO: -  ProjectSettings.swift
 
     private func getBundleId(buildDir: String, appName: String) throws -> String? {
         struct BundleID: Codable {
@@ -114,6 +112,8 @@ struct Configure: ParsableCommand {
         }
     }
 
+    // TODO: - rename parse settings
+
     private mutating func getBuildDir() throws -> String {
         let workspace = try self.workspace ?? getWorkspace(project: project)
         let command = try getCommand()
@@ -124,6 +124,8 @@ struct Configure: ParsableCommand {
         let cmdPath = try getCommandPath()
         return output + "/" + cmdPath + "-iphonesimulator"
     }
+
+    // TODO: -  ProjectSettings.swift
 
     private func getAppDir(buildDir: String) throws -> String {
         let cmdPath = try getCommandPath()
@@ -167,12 +169,12 @@ struct Configure: ParsableCommand {
             let projects = projectDirs.compactMap { dir in
                 try? fileManager.contentsOfDirectory(atPath: "\(currentPath)/\(dir)")
                     .filter { $0.hasSuffix(".xcworkspace") }
-            }
+            }.flatMap { $0 }
 
             if projects.count > 1 {
                 throw RuntimeError("there are multiple xcodeproj in pwd, please specify one")
             } else if let project = projects.first {
-                return project.first!
+                return project
             }
 
             throw RuntimeError("there no xcworkspace or xcodeproj in pwd, please specify one")
